@@ -6,8 +6,14 @@ const usernameInput = /** @type {HTMLInputElement} */ (
 const passwordInput = /** @type {HTMLInputElement} */ (
   document.getElementById("password")
 );
-const loginContainer = /** @type {HTMLFormElement} */ (
-  document.getElementById("login-container")
+const screenContainer = /** @type {HTMLFormElement} */ (
+  document.getElementById("screen-container")
+);
+const form = /** @type {HTMLFormElement} */ (
+  screenContainer.querySelector("form")
+);
+const messageContainer = /** @type {HTMLDivElement} */ (
+  document.getElementById("message-container")
 );
 const canvas = /** @type {HTMLCanvasElement} */ (
   document.getElementById("canvas")
@@ -562,24 +568,34 @@ function validateForm(form) {
 
 /** @type {number | null} */
 let submitTimeout = null;
-loginContainer.addEventListener("submit", (event) => {
+form.addEventListener("submit", (event) => {
   event.preventDefault();
 
   if (submitTimeout) {
     clearTimeout(submitTimeout);
   }
 
-  const form = /** @type {HTMLFormElement} */ (event.target);
   const valid = validateForm(form);
 
   LED_COLOR = valid ? LED_GREEN : LED_RED;
   render();
 
+  form.style.display = "none";
+  messageContainer.style.display = "block";
+  const h1 = /** @type {HTMLHeadingElement} */ (
+    messageContainer.querySelector("h1")
+  );
+  h1.textContent = valid ? "Access Granted" : "Access Denied";
+  h1.classList.toggle("invalid", !valid);
+
   submitTimeout = setTimeout(() => {
     LED_COLOR = LED_OFF;
     render();
+
+    messageContainer.style.display = "none";
+    form.style.display = "flex";
     submitTimeout = null;
-  }, 1000);
+  }, 3000);
 });
 
 /** @type {[number, number, number]} */
@@ -588,8 +604,6 @@ const LED_OFF = [0.0, 0.0, 0.0];
 const LED_RED = [1.0, 0.0, 0.0];
 /** @type {[number, number, number]} */
 const LED_GREEN = [0.0, 1.0, 0.0];
-/** @type {[number, number, number]} */
-const LED_BLUE = [0.0, 0.0, 1.0];
 
 /** @type {[number, number, number]} */
 let LED_COLOR = LED_OFF;
@@ -642,8 +656,8 @@ function render() {
   gl.uniform3f(ledColorLocation, ...LED_COLOR);
 
   // Apply same rotation to login container using CSS transforms
-  if (loginContainer) {
-    loginContainer.style.transform = `
+  if (screenContainer) {
+    screenContainer.style.transform = `
       translate(-50%, -50%)
       rotateX(${pitchAngle / 12}rad)
       rotateY(${-yawAngle / 12}rad)

@@ -13,15 +13,20 @@
 <body>
   <main>
     <canvas id="canvas"></canvas>
-    <form id="login-container" class="bitcount-font">
-      <div class="input-group">
-        <input type="text" id="username" placeholder="USERNAME" autocomplete="off" />
+    <div id="screen-container">
+      <form class="bitcount-font">
+        <div class="input-group">
+          <input type="text" id="username" placeholder="USERNAME" autocomplete="off" />
+        </div>
+        <div class="input-group">
+          <input type="password" id="password" placeholder="PASSWORD" autocomplete="current-password" />
+        </div>
+        <button type="submit" id="login-button">LOGIN</button>
+      </form>
+      <div id="message-container" class="bitcount-font">
+        <h1></h1>
       </div>
-      <div class="input-group">
-        <input type="password" id="password" placeholder="PASSWORD" autocomplete="current-password" />
-      </div>
-      <button type="submit" id="login-button">LOGIN</button>
-    </form>
+    </div>
   </main>
   <script src="main.mjs"></script>
 </body>
