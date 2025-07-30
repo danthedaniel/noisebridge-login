@@ -239,8 +239,8 @@ void main() {
   uv.x *= u_resolution.x / u_resolution.y;
 
   // Camera setup (fixed camera, no mouse rotation)
-  vec3 ro = vec3(0.0, 0.0, -2.75); // Ray origin (camera position) - moved closer
-  vec3 rd = normalize(vec3(uv, 1.0)); // Ray direction
+  vec3 ro = vec3(0.0, 0.0, -2.35); // Camera position
+  vec3 rd = normalize(vec3(uv, 1.0)); // Camera direction
 
   // Ray march
   vec2 marchResult = rayMarch(ro, rd);
@@ -378,11 +378,19 @@ const yawAngleLocation = gl.getUniformLocation(program, "u_yaw_angle");
 /** @type {WebGLUniformLocation | null} */
 const ledColorLocation = gl.getUniformLocation(program, "u_led_color");
 
-// Mouse tracking
+// Mouse tracking for desktop
 /** @type {{ x: number, y: number }} */
 let mousePos = { x: 0.5, y: 0.5 };
 
-// Add mouse event listener
+// Touch tracking for mobile devices
+/** @type {{ x: number, y: number } | null} */
+let lastTouchPos = null;
+/** @type {{ pitch: number, yaw: number }} */
+let touchAngles = { pitch: 0, yaw: 0 };
+/** @type {boolean} */
+let isDragging = false;
+
+// Add mouse event listener for desktop
 document.addEventListener("mousemove", (event) => {
   const rect = canvas.getBoundingClientRect();
   // Ignore if mouse is outside of canvas
@@ -401,18 +409,88 @@ document.addEventListener("mousemove", (event) => {
   render();
 });
 
-document.addEventListener("touchmove", (event) => {
-  const rect = canvas.getBoundingClientRect();
-  const touch = event.touches[0];
-  if (!touch) {
-    return;
-  }
+// Touch event handlers for mobile devices
+document.addEventListener(
+  "touchstart",
+  (event) => {
+    event.preventDefault(); // Prevent scrolling
+    const rect = canvas.getBoundingClientRect();
+    const touch = event.touches[0];
+    if (!touch) {
+      return;
+    }
 
-  mousePos.x = (touch.clientX - rect.left) / rect.width;
-  mousePos.y = 1.0 - (touch.clientY - rect.top) / rect.height;
+    // Check if touch is within canvas bounds
+    if (
+      touch.clientX < rect.left ||
+      touch.clientX > rect.right ||
+      touch.clientY < rect.top ||
+      touch.clientY > rect.bottom
+    ) {
+      return;
+    }
 
-  render();
-});
+    isDragging = true;
+    lastTouchPos = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  },
+  { passive: false }
+);
+
+document.addEventListener(
+  "touchmove",
+  (event) => {
+    event.preventDefault(); // Prevent scrolling
+    if (!isDragging || !lastTouchPos) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) {
+      return;
+    }
+
+    // Calculate delta movement
+    const deltaX = touch.clientX - lastTouchPos.x;
+    const deltaY = touch.clientY - lastTouchPos.y;
+
+    // Convert delta to angle changes (adjust sensitivity as needed)
+    const sensitivity = 0.005;
+    touchAngles.yaw -= deltaX * sensitivity; // Horizontal drag controls yaw
+    touchAngles.pitch += deltaY * sensitivity; // Vertical drag controls pitch (inverted)
+
+    // Clamp angles to reasonable ranges
+    touchAngles.pitch = Math.max(
+      -Math.PI / 4,
+      Math.min(Math.PI / 4, touchAngles.pitch)
+    );
+    touchAngles.yaw = Math.max(
+      -Math.PI / 4,
+      Math.min(Math.PI / 4, touchAngles.yaw)
+    );
+
+    // Update last touch position
+    lastTouchPos = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+
+    render();
+  },
+  { passive: false }
+);
+
+document.addEventListener(
+  "touchend",
+  (event) => {
+    event.preventDefault();
+    isDragging = false;
+    lastTouchPos = null;
+  },
+  { passive: false }
+);
 
 canvas.addEventListener("resize", () => {
   resizeCanvas();
@@ -494,20 +572,14 @@ loginContainer.addEventListener("submit", (event) => {
   const form = /** @type {HTMLFormElement} */ (event.target);
   const valid = validateForm(form);
 
+  LED_COLOR = valid ? LED_GREEN : LED_RED;
+  render();
+
   submitTimeout = setTimeout(() => {
     LED_COLOR = LED_OFF;
     render();
     submitTimeout = null;
   }, 1000);
-
-  if (!valid) {
-    LED_COLOR = LED_RED;
-    render();
-    return;
-  }
-
-  LED_COLOR = LED_GREEN;
-  render();
 });
 
 /** @type {[number, number, number]} */
@@ -536,13 +608,32 @@ function render() {
   // Set uniforms
   gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
 
-  // Calculate rotation angles from mouse position
-  const normalizedMouse = {
-    x: (mousePos.x - 0.5) * 2.0,
-    y: (mousePos.y - 0.5) * 2.0,
-  };
-  const pitchAngle = normalizedMouse.y * 0.25; // Vertical mouse movement -> pitch (X-axis rotation)
-  const yawAngle = -normalizedMouse.x * 0.25; // Horizontal mouse movement -> yaw (Y-axis rotation)
+  // Calculate rotation angles - use touch angles if available, otherwise use mouse position
+  let pitchAngle, yawAngle;
+
+  if (
+    isDragging ||
+    (lastTouchPos === null &&
+      (touchAngles.pitch !== 0 || touchAngles.yaw !== 0))
+  ) {
+    // Use accumulated touch angles for touch devices
+    pitchAngle = Math.max(
+      -Math.PI / 8,
+      Math.min(Math.PI / 8, -touchAngles.pitch * 0.25)
+    );
+    yawAngle = Math.max(
+      -Math.PI / 2,
+      Math.min(Math.PI / 2, touchAngles.yaw * 0.25)
+    );
+  } else {
+    // Use mouse position for desktop devices
+    const normalizedMouse = {
+      x: (mousePos.x - 0.5) * 2.0,
+      y: (mousePos.y - 0.5) * 2.0,
+    };
+    pitchAngle = normalizedMouse.y * 0.25; // Vertical mouse movement -> pitch (X-axis rotation)
+    yawAngle = -normalizedMouse.x * 0.25; // Horizontal mouse movement -> yaw (Y-axis rotation)
+  }
 
   gl.uniform1f(pitchAngleLocation, pitchAngle);
   gl.uniform1f(yawAngleLocation, yawAngle);
