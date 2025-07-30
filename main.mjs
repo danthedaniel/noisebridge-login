@@ -208,11 +208,11 @@ void main() {
   vec2 uv = (v_uv - 0.5) * 2.0;
   uv.x *= u_resolution.x / u_resolution.y;
 
-    // Camera setup (fixed camera, no mouse rotation)
+  // Camera setup (fixed camera, no mouse rotation)
   vec3 ro = vec3(0.0, 0.0, -2.75); // Ray origin (camera position) - moved closer
   vec3 rd = normalize(vec3(uv, 1.0)); // Ray direction
 
-    // Ray march
+  // Ray march
   vec2 marchResult = rayMarch(ro, rd);
   float t = marchResult.x;
   float materialId = marchResult.y;
@@ -226,7 +226,7 @@ void main() {
     vec3 normal = calcNormal(p);
 
     // Lighting setup
-    vec3 lightDir = normalize(vec3(1.0, 1.0, -1.0));
+    vec3 lightDir = normalize(vec3(0.5, 0.5, -1.0));
     vec3 viewDir = normalize(-rd);
     float diff = max(0.0, dot(normal, lightDir));
 
@@ -349,11 +349,8 @@ const yawAngleLocation = gl.getUniformLocation(program, "u_yaw_angle");
 /** @type {{ x: number, y: number }} */
 let mousePos = { x: 0.5, y: 0.5 };
 
-/**
- * Handle mouse movement
- * @param {MouseEvent} event - Mouse event
- */
-function handleMouseMove(event) {
+// Add mouse event listener
+document.addEventListener("mousemove", (event) => {
   const rect = canvas.getBoundingClientRect();
   // Ignore if mouse is outside of canvas
   if (
@@ -364,12 +361,30 @@ function handleMouseMove(event) {
   ) {
     return;
   }
+
   mousePos.x = (event.clientX - rect.left) / rect.width;
   mousePos.y = 1.0 - (event.clientY - rect.top) / rect.height; // Flip Y coordinate
-}
 
-// Add mouse event listener
-document.addEventListener("mousemove", handleMouseMove);
+  render(Date.now());
+});
+
+document.addEventListener("touchmove", (event) => {
+  const rect = canvas.getBoundingClientRect();
+  const touch = event.touches[0];
+  if (!touch) {
+    return;
+  }
+
+  mousePos.x = (touch.clientX - rect.left) / rect.width;
+  mousePos.y = 1.0 - (touch.clientY - rect.top) / rect.height;
+
+  render(Date.now());
+});
+
+canvas.addEventListener("resize", () => {
+  resizeCanvas();
+  render(Date.now());
+});
 
 // Get login container for CSS transforms
 const loginContainer = document.getElementById("login-container");
@@ -398,8 +413,6 @@ function resizeCanvas() {
  */
 function render(time) {
   time *= 0.001; // Convert to seconds
-
-  resizeCanvas();
 
   // Enable blending for transparency
   gl.enable(gl.BLEND);
@@ -430,16 +443,17 @@ function render(time) {
   if (loginContainer) {
     loginContainer.style.transform = `
       translate(-50%, -50%)
-      rotateX(${pitchAngle / 8}rad)
-      rotateY(${-yawAngle / 8}rad)
+      rotateX(${pitchAngle / 12}rad)
+      rotateY(${-yawAngle / 12}rad)
     `;
   }
 
   // Draw
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-  requestAnimationFrame(render);
 }
 
 // Start the render loop
-requestAnimationFrame(render);
+requestAnimationFrame(() => {
+  resizeCanvas();
+  render(Date.now());
+});
