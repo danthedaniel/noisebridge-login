@@ -167,10 +167,12 @@ vec3 ledMaterial(vec3 normal, vec3 viewDir, vec3 lightDir, float diff) {
 vec3 calcNormal(vec3 p) {
   const float eps = 0.001;
   vec2 h = vec2(eps, 0.0);
+  float reference = map(p).x;
+
   return normalize(vec3(
-    map(p + h.xyy).x - map(p - h.xyy).x,
-    map(p + h.yxy).x - map(p - h.yxy).x,
-    map(p + h.yyx).x - map(p - h.yyx).x
+    reference - map(p - h.xyy).x,
+    reference - map(p - h.yxy).x,
+    reference - map(p - h.yyx).x
   ));
 }
 

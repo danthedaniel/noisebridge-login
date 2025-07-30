@@ -94,12 +94,10 @@ let renderingContext = null;
  * @returns {Promise<void>}
  */
 async function initGL() {
-  const vertexShaderSource = await fetch("shader.vert").then((res) =>
-    res.text()
-  );
-  const fragmentShaderSource = await fetch("shader.frag").then((res) =>
-    res.text()
-  );
+  const [vertexShaderSource, fragmentShaderSource] = await Promise.all([
+    fetch("shader.vert").then((res) => res.text()),
+    fetch("shader.frag").then((res) => res.text()),
+  ]);
 
   // Setup WebGL
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
