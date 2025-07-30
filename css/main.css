@@ -2,6 +2,14 @@ body {
   background-color: #222;
 }
 
+::selection {
+  background-color: rgba(0, 255, 0, 0.2);
+}
+
+::-moz-selection {
+  background-color: rgba(0, 255, 0, 0.2);
+}
+
 main {
   display: flex;
   justify-content: center;
@@ -15,6 +23,7 @@ main {
 canvas {
   width: min(100vw, 100vh);
   height: min(100vw, 100vh);
+  image-rendering: pixelated;
 }
 
 #login-container {

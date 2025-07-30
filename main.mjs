@@ -1,12 +1,17 @@
 // @ts-check
 
-// WebGL Ray Marcher
-const canvasElement = document.getElementById("canvas");
-if (!canvasElement) {
-  throw new Error("Canvas element not found");
-}
-/** @type {HTMLCanvasElement} */
-const canvas = /** @type {HTMLCanvasElement} */ (canvasElement);
+const usernameInput = /** @type {HTMLInputElement} */ (
+  document.getElementById("username")
+);
+const passwordInput = /** @type {HTMLInputElement} */ (
+  document.getElementById("password")
+);
+const loginContainer = /** @type {HTMLFormElement} */ (
+  document.getElementById("login-container")
+);
+const canvas = /** @type {HTMLCanvasElement} */ (
+  document.getElementById("canvas")
+);
 
 /** @type {WebGL2RenderingContext | null} */
 const glContext = canvas.getContext("webgl2");
@@ -36,15 +41,16 @@ precision highp float;
 in vec2 v_uv;
 out vec4 fragColor;
 
-uniform float u_time;
 uniform vec2 u_resolution;
 uniform float u_pitch_angle;
 uniform float u_yaw_angle;
+uniform vec3 u_led_color;
 
 const float PI = 3.14159265358979323846;
 
-const float MATERIAL_GLASS = 1.0;
 const float MATERIAL_PLASTIC = 0.0;
+const float MATERIAL_GLASS = 1.0;
+const float MATERIAL_LED = 2.0;
 
 // Distance function for a cube
 float sdBox(vec3 p, vec3 b) {
@@ -64,6 +70,11 @@ float sdCappedCylinder( vec3 p, float h, float r )
 {
   vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
   return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+// Distance function for a sphere
+float sdSphere(vec3 p, float s) {
+  return length(p) - s;
 }
 
 // Rotation matrix around X-axis (pitch)
@@ -127,14 +138,28 @@ vec2 map(vec3 p) {
   // Subtract octahedron from cube (CSG subtraction)
   float cubeWithHole = max(cube, -octahedron);
 
+  // Add LED sphere at bottom right of cube
+  vec3 ledPos = rotatedP - vec3(1.1, -0.9, -1.0); // Bottom right position
+  float ledSphere = sdSphere(ledPos, 0.02);
+
   // Determine closest object and its material
   float cylinderInCube = max(cylinder, cube);
 
-  if (cylinderInCube < cubeWithHole) {
-    return vec2(cylinderInCube, MATERIAL_GLASS);
-  } else {
-    return vec2(cubeWithHole, MATERIAL_PLASTIC);
+  // Find the closest object
+  float minDist = cubeWithHole;
+  float material = MATERIAL_PLASTIC;
+
+  if (cylinderInCube < minDist) {
+    minDist = cylinderInCube;
+    material = MATERIAL_GLASS;
   }
+
+  if (ledSphere < minDist) {
+    minDist = ledSphere;
+    material = MATERIAL_LED;
+  }
+
+  return vec2(minDist, material);
 }
 
 // Material functions
@@ -168,6 +193,11 @@ vec3 plasticMaterial(vec3 normal, vec3 viewDir, vec3 lightDir, float diff) {
   float spec = pow(max(0.0, dot(normal, halfDir)), 16.0) * 0.2;
 
   return materialColor * softDiff + spec;
+}
+
+vec3 ledMaterial(vec3 normal, vec3 viewDir, vec3 lightDir, float diff) {
+  // LED material that emits the uniform color
+  return u_led_color;
 }
 
 // Calculate normal using gradient
@@ -238,6 +268,9 @@ void main() {
     } else if (materialId == MATERIAL_PLASTIC) {
       // Cube material
       litColor = plasticMaterial(normal, viewDir, lightDir, diff);
+    } else if (materialId == MATERIAL_LED) {
+      // LED material
+      litColor = ledMaterial(normal, viewDir, lightDir, diff);
     } else {
       // Default material (shouldn't happen)
       litColor = vec3(1.0, 0.0, 1.0); // Magenta for debugging
@@ -337,13 +370,13 @@ gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
 // Get uniform locations
 /** @type {WebGLUniformLocation | null} */
-const timeLocation = gl.getUniformLocation(program, "u_time");
-/** @type {WebGLUniformLocation | null} */
 const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
 /** @type {WebGLUniformLocation | null} */
 const pitchAngleLocation = gl.getUniformLocation(program, "u_pitch_angle");
 /** @type {WebGLUniformLocation | null} */
 const yawAngleLocation = gl.getUniformLocation(program, "u_yaw_angle");
+/** @type {WebGLUniformLocation | null} */
+const ledColorLocation = gl.getUniformLocation(program, "u_led_color");
 
 // Mouse tracking
 /** @type {{ x: number, y: number }} */
@@ -365,7 +398,7 @@ document.addEventListener("mousemove", (event) => {
   mousePos.x = (event.clientX - rect.left) / rect.width;
   mousePos.y = 1.0 - (event.clientY - rect.top) / rect.height; // Flip Y coordinate
 
-  render(Date.now());
+  render();
 });
 
 document.addEventListener("touchmove", (event) => {
@@ -378,16 +411,13 @@ document.addEventListener("touchmove", (event) => {
   mousePos.x = (touch.clientX - rect.left) / rect.width;
   mousePos.y = 1.0 - (touch.clientY - rect.top) / rect.height;
 
-  render(Date.now());
+  render();
 });
 
 canvas.addEventListener("resize", () => {
   resizeCanvas();
-  render(Date.now());
+  render();
 });
-
-// Get login container for CSS transforms
-const loginContainer = document.getElementById("login-container");
 
 /**
  * Resize canvas to match display size
@@ -405,15 +435,58 @@ function resizeCanvas() {
     canvas.height = renderHeight;
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
+
+  render();
 }
 
 /**
- * Render loop
- * @param {number} time - Time in milliseconds
+ * @param {Event} _event
  */
-function render(time) {
-  time *= 0.001; // Convert to seconds
+function onInputChange(_event) {
+  LED_COLOR = LED_GREEN;
+  render();
 
+  setTimeout(() => {
+    LED_COLOR = LED_OFF;
+    render();
+  }, 200);
+}
+
+usernameInput.addEventListener("input", onInputChange);
+passwordInput.addEventListener("input", onInputChange);
+
+/** @type {number | null} */
+let submitTimeout = null;
+loginContainer.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  if (submitTimeout) {
+    clearTimeout(submitTimeout);
+  }
+
+  LED_COLOR = LED_RED;
+  render();
+
+  submitTimeout = setTimeout(() => {
+    LED_COLOR = LED_OFF;
+    render();
+    submitTimeout = null;
+  }, 1000);
+});
+
+/** @type {[number, number, number]} */
+const LED_OFF = [0.0, 0.0, 0.0];
+/** @type {[number, number, number]} */
+const LED_RED = [1.0, 0.0, 0.0];
+/** @type {[number, number, number]} */
+const LED_GREEN = [0.0, 1.0, 0.0];
+/** @type {[number, number, number]} */
+const LED_BLUE = [0.0, 0.0, 1.0];
+
+/** @type {[number, number, number]} */
+let LED_COLOR = LED_OFF;
+
+function render() {
   // Enable blending for transparency
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -425,7 +498,6 @@ function render(time) {
   gl.bindVertexArray(vao);
 
   // Set uniforms
-  gl.uniform1f(timeLocation, time);
   gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
 
   // Calculate rotation angles from mouse position
@@ -438,6 +510,9 @@ function render(time) {
 
   gl.uniform1f(pitchAngleLocation, pitchAngle);
   gl.uniform1f(yawAngleLocation, yawAngle);
+
+  // Set LED color to red (#ff0000)
+  gl.uniform3f(ledColorLocation, ...LED_COLOR);
 
   // Apply same rotation to login container using CSS transforms
   if (loginContainer) {
@@ -455,5 +530,5 @@ function render(time) {
 // Start the render loop
 requestAnimationFrame(() => {
   resizeCanvas();
-  render(Date.now());
+  render();
 });
