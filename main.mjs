@@ -455,6 +455,33 @@ function onInputChange(_event) {
 usernameInput.addEventListener("input", onInputChange);
 passwordInput.addEventListener("input", onInputChange);
 
+/**
+ * @param {HTMLFormElement} form
+ * @returns {boolean}
+ */
+function validateForm(form) {
+  let valid = true;
+
+  const username = /** @type {HTMLInputElement} */ (form.username);
+  const password = /** @type {HTMLInputElement} */ (form.password);
+
+  if (username.value === "") {
+    username.classList.add("invalid");
+    valid = false;
+  } else {
+    username.classList.remove("invalid");
+  }
+
+  if (password.value === "") {
+    password.classList.add("invalid");
+    valid = false;
+  } else {
+    password.classList.remove("invalid");
+  }
+
+  return valid;
+}
+
 /** @type {number | null} */
 let submitTimeout = null;
 loginContainer.addEventListener("submit", (event) => {
@@ -464,14 +491,23 @@ loginContainer.addEventListener("submit", (event) => {
     clearTimeout(submitTimeout);
   }
 
-  LED_COLOR = LED_RED;
-  render();
+  const form = /** @type {HTMLFormElement} */ (event.target);
+  const valid = validateForm(form);
 
   submitTimeout = setTimeout(() => {
     LED_COLOR = LED_OFF;
     render();
     submitTimeout = null;
   }, 1000);
+
+  if (!valid) {
+    LED_COLOR = LED_RED;
+    render();
+    return;
+  }
+
+  LED_COLOR = LED_GREEN;
+  render();
 });
 
 /** @type {[number, number, number]} */

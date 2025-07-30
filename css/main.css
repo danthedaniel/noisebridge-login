@@ -83,6 +83,22 @@ input::placeholder {
   text-shadow: 0 0 3px rgba(0, 255, 0, 0.3);
 }
 
+input.invalid {
+  border-color: #ff0000;
+  box-shadow:
+    0 0 3px #ff0000,
+    0 0 6px #ff0000,
+    0 0 9px #ff0000,
+    inset 0 0 3px rgba(255, 0, 0, 0.2);
+  text-shadow: 0 0 5px #ff0000;
+  color: #ff0000;
+}
+
+input.invalid::placeholder {
+  color: rgba(255, 0, 0, 0.6);
+  text-shadow: 0 0 3px rgba(255, 0, 0, 0.3);
+}
+
 #login-button {
   background: rgba(0, 0, 0, 0.8);
   border: 3px solid #00ff00;
