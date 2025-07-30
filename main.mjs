@@ -301,17 +301,23 @@ function resizeCanvas() {
   scheduleRender();
 }
 
+/** @type {number | null} */
+let inputTimeout = null;
 /**
  * @param {Event} _event
  */
 function onInputChange(_event) {
+  if (inputTimeout) {
+    clearTimeout(inputTimeout);
+  }
+
   ledColor = LED_GREEN;
   scheduleRender();
 
-  setTimeout(() => {
+  inputTimeout = setTimeout(() => {
     ledColor = LED_OFF;
     scheduleRender();
-  }, 200);
+  }, 100);
 }
 
 usernameInput.addEventListener("input", onInputChange);

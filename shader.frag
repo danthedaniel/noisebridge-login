@@ -1,5 +1,5 @@
 #version 300 es
-precision highp float;
+precision mediump float;
 
 in vec2 v_uv;
 out vec4 fragColor;
@@ -11,9 +11,9 @@ uniform vec3 u_led_color;
 
 const float PI = 3.14159265358979323846;
 
-const float MATERIAL_PLASTIC = 0.0;
-const float MATERIAL_GLASS = 1.0;
-const float MATERIAL_LED = 2.0;
+const int MATERIAL_PLASTIC = 0;
+const int MATERIAL_GLASS   = 1;
+const int MATERIAL_LED     = 2;
 
 // Distance function for a cube
 float sdBox(vec3 p, vec3 b) {
@@ -22,15 +22,13 @@ float sdBox(vec3 p, vec3 b) {
 }
 
 // Distance function for an octahedron
-float sdOctahedron( vec3 p, float s)
-{
+float sdOctahedron( vec3 p, float s) {
   p = abs(p);
   return (p.x+p.y+p.z-s)*0.57735027;
 }
 
 // Distance function for a capped cylinder
-float sdCappedCylinder( vec3 p, float h, float r )
-{
+float sdCappedCylinder( vec3 p, float h, float r ) {
   vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(r,h);
   return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
@@ -69,21 +67,11 @@ mat3 rollMatrix(float angle) {
 
 // Scene distance function - returns vec2(distance, materialId)
 vec2 map(vec3 p) {
-  // Mouse-controlled cube rotation (angles calculated in JS)
   float pitchAngle = u_pitch_angle;
   float yawAngle = u_yaw_angle;
-  float rollAngle = 0.0;            // No roll rotation from mouse
-
-  // Generate and combine rotation matrices using separate functions
-  mat3 pitch = pitchMatrix(pitchAngle);
-  mat3 yaw = yawMatrix(yawAngle);
-  mat3 roll = rollMatrix(rollAngle);
-
-  // Combine rotations: roll * pitch * yaw (order matters)
-  mat3 rotation = roll * pitch * yaw;
 
   // Apply rotation to the cube
-  vec3 rotatedP = rotation * p;
+  vec3 rotatedP = pitchMatrix(pitchAngle) * yawMatrix(yawAngle) * p;
   float cube = sdBox(rotatedP, vec3(1.2, 1.0, 1.0));
 
   // Create octahedron positioned at the front of the cube
@@ -105,12 +93,11 @@ vec2 map(vec3 p) {
   vec3 ledPos = rotatedP - vec3(1.1, -0.9, -1.0); // Bottom right position
   float ledSphere = sdSphere(ledPos, 0.02);
 
-  // Determine closest object and its material
   float cylinderInCube = max(cylinder, cube);
 
   // Find the closest object
   float minDist = cubeWithHole;
-  float material = MATERIAL_PLASTIC;
+  int material = MATERIAL_PLASTIC;
 
   if (cylinderInCube < minDist) {
     minDist = cylinderInCube;
@@ -122,7 +109,7 @@ vec2 map(vec3 p) {
     material = MATERIAL_LED;
   }
 
-  return vec2(minDist, material);
+  return vec2(minDist, float(material));
 }
 
 // Material functions
@@ -204,47 +191,45 @@ void main() {
   uv.x *= u_resolution.x / u_resolution.y;
 
   // Camera setup (fixed camera, no mouse rotation)
-  vec3 ro = vec3(0.0, 0.0, -2.35); // Camera position
-  vec3 rd = normalize(vec3(uv, 1.0)); // Camera direction
+  vec3 camera = vec3(0.0, 0.0, -2.35); // Camera position
+  vec3 cameraDir = normalize(vec3(uv, 1.0)); // Camera direction
 
   // Ray march
-  vec2 marchResult = rayMarch(ro, rd);
-  float t = marchResult.x;
-  float materialId = marchResult.y;
+  vec2 marchResult = rayMarch(camera, cameraDir);
+  float dist = marchResult.x;
+  int materialId = int(marchResult.y);
 
   // Calculate color with transparency
   vec4 color = vec4(0.0, 0.0, 0.0, 0.0); // Transparent background
 
-  if (t < 100.0) {
+  if (dist < 100.0) {
     // Hit something
-    vec3 p = ro + t * rd;
-    vec3 normal = calcNormal(p);
+    vec3 point = camera + dist * cameraDir;
+    vec3 normal = calcNormal(point);
 
     // Lighting setup
     vec3 lightDir = normalize(vec3(0.5, 0.5, -1.0));
-    vec3 viewDir = normalize(-rd);
+    vec3 viewDir = normalize(-cameraDir);
     float diff = max(0.0, dot(normal, lightDir));
 
-    vec3 litColor;
-
-    if (materialId == MATERIAL_GLASS) {
-      // Cylinder material
-      litColor = glassMaterial(normal, viewDir, lightDir, diff);
-    } else if (materialId == MATERIAL_PLASTIC) {
-      // Cube material
-      litColor = plasticMaterial(normal, viewDir, lightDir, diff);
-    } else if (materialId == MATERIAL_LED) {
-      // LED material
-      litColor = ledMaterial(normal, viewDir, lightDir, diff);
-    } else {
-      // Default material (shouldn't happen)
-      litColor = vec3(1.0, 0.0, 1.0); // Magenta for debugging
+    vec3 materialColor;
+    switch (materialId) {
+      case MATERIAL_GLASS:
+        materialColor = glassMaterial(normal, viewDir, lightDir, diff);
+        break;
+      case MATERIAL_PLASTIC:
+        materialColor = plasticMaterial(normal, viewDir, lightDir, diff);
+        break;
+      case MATERIAL_LED:
+        materialColor = ledMaterial(normal, viewDir, lightDir, diff);
+        break;
+      default:
+        materialColor = vec3(1.0, 0.0, 1.0); // Magenta for debugging
     }
 
     // Gamma correction
-    litColor = pow(litColor, vec3(1.0 / 2.2));
-
-    color = vec4(litColor, 1.0);
+    materialColor = pow(materialColor, vec3(1.0 / 2.2));
+    color = vec4(materialColor, 1.0);
   }
 
   fragColor = color;
