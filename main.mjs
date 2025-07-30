@@ -412,7 +412,7 @@ document.addEventListener("mousemove", (event) => {
   mousePos.x = (event.clientX - rect.left) / rect.width;
   mousePos.y = 1.0 - (event.clientY - rect.top) / rect.height; // Flip Y coordinate
 
-  render();
+  scheduleRender();
 });
 
 // Touch event handlers for mobile devices
@@ -483,7 +483,7 @@ document.addEventListener(
       y: touch.clientY,
     };
 
-    render();
+    scheduleRender();
   },
   { passive: false }
 );
@@ -500,7 +500,7 @@ document.addEventListener(
 
 canvas.addEventListener("resize", () => {
   resizeCanvas();
-  render();
+  scheduleRender();
 });
 
 /**
@@ -520,19 +520,19 @@ function resizeCanvas() {
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
 
-  render();
+  scheduleRender();
 }
 
 /**
  * @param {Event} _event
  */
 function onInputChange(_event) {
-  LED_COLOR = LED_GREEN;
-  render();
+  ledColor = LED_GREEN;
+  scheduleRender();
 
   setTimeout(() => {
-    LED_COLOR = LED_OFF;
-    render();
+    ledColor = LED_OFF;
+    scheduleRender();
   }, 200);
 }
 
@@ -577,8 +577,8 @@ form.addEventListener("submit", (event) => {
 
   const valid = validateForm(form);
 
-  LED_COLOR = valid ? LED_GREEN : LED_RED;
-  render();
+  ledColor = valid ? LED_GREEN : LED_RED;
+  scheduleRender();
 
   form.style.display = "none";
   messageContainer.style.display = "block";
@@ -589,8 +589,8 @@ form.addEventListener("submit", (event) => {
   h1.classList.toggle("invalid", !valid);
 
   submitTimeout = setTimeout(() => {
-    LED_COLOR = LED_OFF;
-    render();
+    ledColor = LED_OFF;
+    scheduleRender();
 
     messageContainer.style.display = "none";
     form.style.display = "flex";
@@ -606,7 +606,17 @@ const LED_RED = [1.0, 0.0, 0.0];
 const LED_GREEN = [0.0, 1.0, 0.0];
 
 /** @type {[number, number, number]} */
-let LED_COLOR = LED_OFF;
+let ledColor = LED_OFF;
+
+/** @type {number | null} */
+let pendingAnimationFrame = null;
+function scheduleRender() {
+  if (pendingAnimationFrame) {
+    cancelAnimationFrame(pendingAnimationFrame);
+  }
+
+  pendingAnimationFrame = requestAnimationFrame(render);
+}
 
 function render() {
   // Enable blending for transparency
@@ -651,25 +661,20 @@ function render() {
 
   gl.uniform1f(pitchAngleLocation, pitchAngle);
   gl.uniform1f(yawAngleLocation, yawAngle);
-
-  // Set LED color to red (#ff0000)
-  gl.uniform3f(ledColorLocation, ...LED_COLOR);
+  gl.uniform3f(ledColorLocation, ...ledColor);
 
   // Apply same rotation to login container using CSS transforms
-  if (screenContainer) {
-    screenContainer.style.transform = `
-      translate(-50%, -50%)
-      rotateX(${pitchAngle / 12}rad)
-      rotateY(${-yawAngle / 12}rad)
-    `;
-  }
+  screenContainer.style.transform = `
+    translate(-50%, -50%)
+    rotateX(${pitchAngle / 12}rad)
+    rotateY(${-yawAngle / 12}rad)
+  `;
 
   // Draw
   gl.drawArrays(gl.TRIANGLES, 0, 6);
+  pendingAnimationFrame = null;
 }
 
 // Start the render loop
-requestAnimationFrame(() => {
-  resizeCanvas();
-  render();
-});
+resizeCanvas();
+scheduleRender();
