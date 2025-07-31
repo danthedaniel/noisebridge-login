@@ -3,11 +3,11 @@ body {
 }
 
 ::selection {
-  background-color: rgba(0, 255, 0, 0.2);
+  background-color: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 ::-moz-selection {
-  background-color: rgba(0, 255, 0, 0.2);
+  background-color: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 main {
