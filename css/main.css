@@ -20,7 +20,7 @@ main {
   perspective: 30px; /* Enable 3D transforms */
 }
 
-canvas {
+#webgl-canvas {
   width: min(100vw, 100vh);
   height: min(100vw, 100vh);
   image-rendering: pixelated;
@@ -60,6 +60,18 @@ canvas {
 
 #message-container h1.invalid {
   color: #ff0000;
+}
+
+#screen-saver {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  width: max(min(35vw, 35vh), 10rem);
+  height: max(min(35vw, 35vh), 10rem);
+  mix-blend-mode: screen;
 }
 
 .input-group {
